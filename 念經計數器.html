@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>念經計數器</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6f8;--ink:#12324f;--sub:#5d7488;--card:#fff;--line:#d3dee6;--gold:#b98a1f;--lapis:#1c5a94;--btn-t:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d2238;--ink:#e8eff5;--sub:#8fa8bd;--card:#14304d;--line:#254866;--gold:#e0b64a;--lapis:#3b82c4}}
+:root[data-theme="dark"]{--bg:#0d2238;--ink:#e8eff5;--sub:#8fa8bd;--card:#14304d;--line:#254866;--gold:#e0b64a;--lapis:#3b82c4}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Serif TC","Songti TC","PingFang TC",serif;min-height:100vh}
+main{max-width:460px;margin:0 auto;padding:16px 18px 32px;display:flex;flex-direction:column;gap:16px}
+select,input,button{font:inherit;color:inherit}
+.row{display:flex;gap:10px;align-items:center}
+select,input{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+label{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:4px;flex:1}
+.text{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;line-height:1.9;font-size:17px;letter-spacing:.08em}
+.text:empty{display:none}
+ruby{ruby-position:over;margin:0 1px}rt{font-size:.5em;letter-spacing:0;color:var(--sub)}
+.text.nz rt{display:none}
+.tg{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--sub)}.tg input{width:auto}.tg .small{color:var(--ink)}
+.stat{display:flex;justify-content:space-around;text-align:center}
+.stat b{display:block;font-size:34px;font-weight:700;color:var(--gold)}
+.stat span{font-size:13px;color:var(--sub)}
+.bead{align-self:center;width:min(78vw,300px);aspect-ratio:1;border-radius:50%;border:0;cursor:pointer;
+background:radial-gradient(circle at 35% 30%,var(--lapis),#0f3459);color:var(--btn-t);
+box-shadow:0 0 0 6px var(--bg),0 0 0 8px var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;
+transition:transform .08s;user-select:none;touch-action:manipulation}
+.bead:active{transform:scale(.96)}
+.bead:focus-visible,.small:focus-visible{outline:3px solid var(--gold);outline-offset:6px}
+.bead .n{font-size:84px;font-weight:700;line-height:1}
+.bead .t{font-size:14px;opacity:.8;margin-top:6px}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .15s}
+.small{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;flex:1}
+.msg{text-align:center;color:var(--gold);min-height:22px;font-size:15px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="row">
+    <label>經咒
+      <select id="sel"></select>
+    </label>
+    <label>每圈遍數
+      <input id="target" type="number" inputmode="numeric" min="1" value="108">
+    </label>
+  </div>
+  <div class="row" id="nameRow" hidden>
+    <label>自訂名稱<input id="cname" placeholder="例如：心經"></label>
+  </div>
+  <label class="tg" id="tg" style="flex-direction:row"><input type="checkbox" id="zy" checked>顯示注音<span style="flex:1"></span><button class="small" id="fm" style="flex:none;padding:4px 12px" aria-label="縮小字體">A－</button><button class="small" id="fp" style="flex:none;padding:4px 12px;font-size:18px" aria-label="放大字體">A＋</button></label>
+  <div class="text" id="text"></div>
+  <div class="stat">
+    <div><b id="cur">0</b><span>本圈</span></div>
+    <div><b id="rounds">0</b><span>圈數</span></div>
+    <div><b id="total">0</b><span>累計遍數</span></div>
+  </div>
+  <div class="bar"><i id="bar"></i></div>
+  <button class="bead" id="bead" aria-label="念完一遍，點一下">
+    <span class="n" id="big">0</span><span class="t">念完一遍，點一下</span>
+  </button>
+  <div class="msg" id="msg"></div>
+  <div class="row">
+    <button class="small" id="undo">撤銷一次</button>
+    <button class="small" id="reset">本咒歸零</button>
+  </div>
+</main>
+<script>
+var PRESETS=[
+ {id:"yaoshi",name:"藥師灌頂真言",text:"南ㄋㄚˊ無ㄇㄛˊ薄ㄅㄛˊ伽ㄑㄧㄝˊ伐ㄈㄚˊ帝ㄉㄧˋ\u3000鞞ㄆㄧˊ殺ㄕㄚˋ社ㄕㄜˋ\n窶ㄐㄩˋ嚕ㄌㄨˋ薜ㄅㄧˋ琉ㄌㄧㄡˊ璃ㄌㄧˊ\u3000鉢ㄅㄛ喇ㄌㄚˋ婆ㄆㄛˊ\n喝ㄏㄜˋ囉ㄌㄚˋ闍ㄕㄜˋ也ㄧㄝˇ\u3000怛ㄉㄚˊ他ㄊㄨㄛ揭ㄐㄧㄝˊ多ㄉㄨㄛ耶ㄧㄝˊ\n阿ㄚ囉ㄌㄚˋ喝ㄏㄜˋ帝ㄉㄧˋ\u3000三ㄙㄢ藐ㄇㄧㄠˇ三ㄙㄢ勃ㄅㄛˊ陀ㄊㄨㄛˊ耶ㄧㄝˊ\n怛ㄉㄚˊ姪ㄓˊ他ㄊㄨㄛ\u3000唵ㄨㄥ\n鞞ㄆㄧˊ殺ㄕㄚˋ逝ㄕˋ\u3000鞞ㄆㄧˊ殺ㄕㄚˋ逝ㄕˋ\u3000鞞ㄆㄧˊ殺ㄕㄚˋ社ㄕㄜˋ\n三ㄙㄢ沒ㄇㄛˋ揭ㄐㄧㄝˊ帝ㄉㄧˋ\u3000莎ㄙㄨㄛ訶ㄏㄜ"},
+ {id:"zhunti",name:"準提神咒",text:"稽ㄑㄧˇ首ㄕㄡˇ皈ㄍㄨㄟ依ㄧ蘇ㄙㄨ悉ㄒㄧ帝ㄉㄧˋ\n頭ㄊㄡˊ面ㄇㄧㄢˋ頂ㄉㄧㄥˇ禮ㄌㄧˇ七ㄑㄧ俱ㄐㄩ胝ㄓ\n我ㄨㄛˇ今ㄐㄧㄣ稱ㄔㄥ讚ㄗㄢˋ大ㄉㄚˋ準ㄓㄨㄣˇ提ㄊㄧˊ\n惟ㄨㄟˊ願ㄩㄢˋ慈ㄘˊ悲ㄅㄟ垂ㄔㄨㄟˊ加ㄐㄧㄚ護ㄏㄨˋ\n南ㄋㄚˊ無ㄇㄛˊ颯ㄙㄚˋ哆ㄉㄨㄛ喃ㄋㄢˊ\n三ㄙㄢ藐ㄇㄧㄠˇ三ㄙㄢ菩ㄆㄨˊ陀ㄊㄨㄛˊ\n俱ㄐㄩ胝ㄓ喃ㄋㄢˊ\n怛ㄉㄚˊ姪ㄓˊ他ㄊㄨㄛ\n唵ㄨㄥ\n折ㄓㄜˊ戾ㄌㄧˋ主ㄓㄨˇ戾ㄌㄧˋ\n準ㄓㄨㄣˇ提ㄊㄧˊ娑ㄙㄨㄛ婆ㄆㄛˊ訶ㄏㄜ"},
+ {id:"custom",name:"自訂",text:""}
+];
+var KEY="chant-counter-v1", S={sel:"yaoshi",target:108,data:{},names:{}};
+try{var raw=localStorage.getItem(KEY);if(raw)S=Object.assign(S,JSON.parse(raw));}catch(e){}
+var $=function(i){return document.getElementById(i)};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function d(){return S.data[S.sel]||(S.data[S.sel]={total:0})}
+function render(){
+  var p=PRESETS.filter(function(x){return x.id===S.sel})[0]||PRESETS[0];
+  var t=Math.max(1,S.target|0),n=d().total;
+  $("cur").textContent=n%t;$("big").textContent=n%t;
+  $("rounds").textContent=Math.floor(n/t);$("total").textContent=n;
+  $("bar").style.width=(n%t)/t*100+"%";
+  $("text").innerHTML=p.text.replace(/\n/g,"<br>").replace(/([\u4e00-\u9fff])([\u3100-\u312f\u02ca\u02c7\u02cb\u02d9]*)/g,function(m,c,z){return z?"<ruby>"+c+"<rt>"+z+"</rt></ruby>":c});
+  $("tg").hidden=!p.text;$("text").style.fontSize=(S.fs||17)+"px";$("zy").checked=S.zy!==false;$("text").className="text"+(S.zy===false?" nz":"");
+  $("nameRow").hidden=S.sel!=="custom";
+  $("cname").value=S.names.custom||"";
+  $("target").value=t;
+  var opts=PRESETS.map(function(x){var nm=x.id==="custom"&&S.names.custom?S.names.custom:x.name;
+    return '<option value="'+x.id+'"'+(x.id===S.sel?" selected":"")+'>'+nm.replace(/</g,"&lt;")+'</option>'}).join("");
+  $("sel").innerHTML=opts;
+}
+function buzz(ms){try{if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
+$("bead").onclick=function(){
+  var t=Math.max(1,S.target|0);d().total++;save();render();
+  if(d().total%t===0){$("msg").textContent="圓滿一圈（"+t+" 遍）";buzz([60,40,60])}
+  else{$("msg").textContent="";buzz(15)}
+};
+$("undo").onclick=function(){if(d().total>0){d().total--;save();render();$("msg").textContent=""}};
+$("reset").onclick=function(){if(d().total===0)return;
+  if($("reset").dataset.arm){d().total=0;delete $("reset").dataset.arm;$("reset").textContent="本咒歸零";save();render();$("msg").textContent="";}
+  else{$("reset").dataset.arm=1;$("reset").textContent="再點一次確認";
+    setTimeout(function(){delete $("reset").dataset.arm;$("reset").textContent="本咒歸零"},3000)}};
+$("fm").onclick=function(){S.fs=Math.max(12,(S.fs||17)-2);save();render()};
+$("fp").onclick=function(){S.fs=Math.min(40,(S.fs||17)+2);save();render()};
+$("zy").onchange=function(){S.zy=this.checked;save();render()};
+$("sel").onchange=function(){S.sel=this.value;save();render();$("msg").textContent=""};
+$("target").onchange=function(){S.target=Math.max(1,parseInt(this.value)||108);save();render()};
+$("cname").oninput=function(){S.names.custom=this.value;save();
+  var o=$("sel").querySelector('option[value="custom"]');if(o)o.textContent=this.value||"自訂"};
+render();
+</script>
+</body>
+</html>
